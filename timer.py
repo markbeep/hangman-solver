@@ -16,7 +16,7 @@ def stopwatch(lng, n=100, process_count=1):
     t1 = time.perf_counter()
     for i in range(n):
         wtg = "_" * random.randint(1, max_length)
-        hangman.get_freq_letters(wtg, ignore=[], language=lng)
+        hangman.solve(wtg, ignore=[], language=lng)
         if i % 50 == 0 and i > 0:
             print(i)
     t2 = time.perf_counter()
@@ -24,7 +24,7 @@ def stopwatch(lng, n=100, process_count=1):
 
 
 def main():
-    stopwatch("german", 10)
+    stopwatch("english", 500)
     
 
 

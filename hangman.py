@@ -42,6 +42,12 @@ v.3.2:  Cleaned up code and removed multithreading/multiprocessing completely, a
 v.4.0:  Numba implementation. Because it keeps having to compile, it made the code a
         lot slower.
 
+v.5.0:  Turns out doing it sequential and without libraries turned out the best. So back to the original!
+        Cleaned up the code and made some changes to make it faster.
+        Average time per searched word:
+            English: 0.0306s
+            German: 0.14996s
+
 German word list: https://gist.github.com/MarvinJWendt/2f4f4154b8ae218600eb091a5706b5f4
 English word list: https://github.com/dwyl/english-words
 
@@ -55,17 +61,18 @@ from numba.typed import List
 import numpy as np
 import string
 
-def get_freq_letters(wtg:str, ignore=[], language="english"):
+def solve(wtg:str, ignore=[], language="english"):
     """Returns a type dict with all letters and the amount of words
-    that contain that letter.
+    that contain that letter and a type list with the list of fitting
+    words.
 
     Args:
         wtg (str): Word to guess
         ignore (list, optional): Letters to ignore. Defaults to [].
-        word_list_path (str, optional): [description]. Defaults to "words.txt".
+        language (str, optional): The language to find matches in. Defaults to "english".
 
     Returns:
-        tuple: (letter_count:dict, fitting_words:list)
+        tuple: (letter_count:dict, fitting:list)
     """
 
     word_list_path = get_filename(wtg, language)
@@ -78,33 +85,18 @@ def get_freq_letters(wtg:str, ignore=[], language="english"):
         cont = f.read()
     words = cont.split("\n")
 
-    # create the np arrays
-    t1 = time.perf_counter()
-    print(f"T0")
-    av_lets = string.ascii_lowercase + "äöüàéè"
-    mx = ord(max(av_lets, key=ord))-97 + 1
-    letter_count = np.zeros(mx, np.int32)  # index 0 is 'a', last index is the char with highest unicode
-    words = np.array(words)
-    fitting = np.zeros(len(words), dtype=f'<U{len(wtg)}')
-    
-    ignore = np.array(ignore)  # array to keep track of what chars are ignored
-    
-    print(f"T1: {time.perf_counter()-t1}")
-    t1 = time.perf_counter()
-    
+    letter_count = {'a': 0, 'b': 0, 'c': 0, 'd': 0, 'e': 0, 'f': 0, 'g': 0, 'h': 0, 'i': 0, 'j': 0, 'k': 0, 'l': 0,
+                'm': 0, 'n': 0, 'o': 0, 'p': 0, 'q': 0, 'r': 0, 's': 0, 't': 0, 'u': 0, 'v': 0, 'w': 0, 'x': 0,
+                'y': 0, 'z': 0, 'ä': 0, 'ö': 0, 'ü': 0}
+    fitting = []
+
     get_fitting(words, wtg, fitting, ignore)
+    count_chars(fitting, wtg, letter_count)
     
-    print(f"T fitting: {time.perf_counter()-t1}")
-    t1 = time.perf_counter()
-    
-    count_chars(fitting, wtg, letter_count, ignore, mx)
-    
-    print(f"T counted: {time.perf_counter()-t1}")
-    t1 = time.perf_counter()
     return letter_count, fitting
 
 
-def count_chars(words, wtg, letter_count, ignore, mx):
+def count_chars(words, wtg, letter_count):
     """
     Count the amount of words each letter is in.
     
@@ -112,38 +104,26 @@ def count_chars(words, wtg, letter_count, ignore, mx):
           only the amount of words a letter is in.
     """
     
-    for i in range(len(words)):
-        w = words[i]
-        if w == "":
-            break
+    for w in words:
         if len(w) == len(wtg):  # only consider words of the same length
-            marked_letters = np.zeros(mx, np.int8)
-            for j in range(len(w)):
-                let = w[j]
-                o = ord(let) - 97
-                if marked_letters[o] == 0:
-                    letter_count[o] += 1
-                    marked_letters[o] = 1
+            marked_letters = []
+            for c in w:
+                c = c.lower()
+                if c not in marked_letters:
+                    try:
+                        letter_count[c] += 1
+                    except KeyError:
+                        pass
                 
 
-@njit
 def get_fitting(words, wtg, fitting_words, ignore):
-    fit_ind = 0
-    for i in range(len(words)):
-        w = words[i]
-        fit = True
+    for w in words:
         if len(w) == len(wtg):  # only consider words of the same length
-            for j in range(len(w)):
-                let = w[j]
-                if wtg[j] != "_" and let != wtg[j]:
-                    fit = False
+            for i, c in enumerate(w):
+                if (wtg[i] != "_" and c != wtg[i]) or c in ignore:
                     break
-                if let in ignore:
-                    fit = False
-                    break
-            if fit:
-                fitting_words[fit_ind] = w
-                fit_ind += 1
+            else:
+                fitting_words.append(w)
 
 
 def get_filename(wtg:str, language:str):
@@ -186,8 +166,8 @@ def max_length(language:str):
 
 def main():
     wtg = "______"  # word to guess
-    ignore = ["a", "e", "i", "o", "u"]  # unused letters
-    result = get_freq_letters(wtg, ignore, "english")
+    ignore = []  # unused letters
+    result = solve(wtg, ignore, "english")
     fitting = [x for x in result[1] if x != ""]
     #print(fitting)
     print(result[0])
