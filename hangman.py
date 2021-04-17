@@ -54,12 +54,7 @@ English word list: https://github.com/dwyl/english-words
 """
 
 
-import time
 import os
-from numba import jit, njit
-from numba.typed import List
-import numpy as np
-import string
 
 def solve(wtg:str, ignore=[], language="english"):
     """Returns a type dict with all letters and the amount of words
@@ -168,8 +163,6 @@ def main():
     wtg = "______"  # word to guess
     ignore = []  # unused letters
     result = solve(wtg, ignore, "english")
-    fitting = [x for x in result[1] if x != ""]
-    #print(fitting)
     print(result[0])
 
 if __name__ == "__main__":
