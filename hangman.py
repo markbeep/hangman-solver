@@ -35,6 +35,9 @@ v.3.1:  Tried the search using the Python multiprocessing library. The overhead
         turned out to be a too big of a problem, which is why multiprocessing won't
         be the way to go. For each separate process it took about an extra 0.1s.
 
+v.3.2:  Cleaned up code and removed multithreading/multiprocessing completely, as it only
+        made code slower.
+
 
 German word list: https://gist.github.com/MarvinJWendt/2f4f4154b8ae218600eb091a5706b5f4
 English word list: https://github.com/dwyl/english-words
@@ -44,41 +47,9 @@ English word list: https://github.com/dwyl/english-words
 
 import time
 import os
-from multiprocessing import Process, Manager
-from toolz import merge_with
-from itertools import chain
-import threading
 
 
-class myThread(threading.Thread):
-    def __init__(self, words:list, wtg:str, letter_count, fitting_words, ignore:list, start_index:int, length:int):
-        threading.Thread.__init__(self)
-        self.words = words
-        self.wtg = wtg
-        self.letter_count = letter_count
-        self.fitting_words = fitting_words
-        self.ignore = ignore
-        self.start_index = start_index
-        self.length = length
-    
-    def run(self):
-        for i in range(self.length):
-            w = self.words[i + self.start_index]
-            if len(w) == len(self.wtg):  # only consider words of the same length
-                marked_letters = []
-                for i, letter in enumerate(w):
-                    if (self.wtg[i] != "_" and w[i] != self.wtg[i]) or letter in self.ignore:
-                        break
-                    if letter not in marked_letters:
-                        try:
-                            self.letter_count[letter] += 1
-                            marked_letters.append(letter)
-                        except KeyError:  # KeyError is raised if letter is not part of the alphabet
-                            pass
-                else:  # else only gets called on a normal ending for loop (no break)
-                    self.fitting_words.append(w)
-
-def get_freq_letters(wtg:str, ignore=[], language="english", process_count=1):
+def get_freq_letters(wtg:str, ignore=[], language="english"):
     """Returns a type dict with all letters and the amount of words
     that contain that letter.
 
@@ -107,50 +78,18 @@ def get_freq_letters(wtg:str, ignore=[], language="english", process_count=1):
                 'y': 0, 'z': 0, 'ä': 0, 'ö': 0, 'ü': 0, }
     fitting_words = []
     
-    # multithreading
-    """all_threads = []
-    step = len(words) // process_count
-    for i in range(process_count):
-        length = step
-        if i == process_count-1:
-            length = len(words) - length*i
-        t = myThread(words, wtg, letter_count, fitting_words, ignore, step*i, length)
-        t.start()
-        all_threads.append(t)
-    for t in all_threads:
-        t.join()"""
-
-    # multiprocessing
-    jobs = []
-    letter_count_list = Manager().list()
-    fitting_words = Manager().list()
-    step = len(words) // process_count
-    t1 = time.perf_counter()
-    for i in range(process_count):
-        length = step
-        if i == process_count-1:
-            length = len(words) - length*i
-        p = Process(target=count_chars, args=(words, wtg, letter_count_list, fitting_words, ignore, step*i, length))
-        jobs.append(p)
-        p.start()
-        t1 = time.perf_counter()
-    for i, p in enumerate(jobs):
-        p.join()
-    letter_count = merge_with(sum, letter_count_list)
+    count_chars(words, wtg, letter_count, fitting_words, ignore, 0, len(words))
             
     return letter_count, fitting_words
 
-def count_chars(words:list, wtg:str, letter_count_list, fitting_words_list, ignore:list, start:int, length:int):
+def count_chars(words:list, wtg:str, letter_count, fitting_words, ignore:list, start:int, length:int):
     """
     Count the amount of words each letter is in.
     
     Note: we don't want to count all letters in each word,
           only the amount of words a letter is in.
     """
-    fitting_words = []
-    letter_count = {'a': 0, 'b': 0, 'c': 0, 'd': 0, 'e': 0, 'f': 0, 'g': 0, 'h': 0, 'i': 0, 'j': 0, 'k': 0, 'l': 0,
-                'm': 0, 'n': 0, 'o': 0, 'p': 0, 'q': 0, 'r': 0, 's': 0, 't': 0, 'u': 0, 'v': 0, 'w': 0, 'x': 0,
-                'y': 0, 'z': 0, 'ä': 0, 'ö': 0, 'ü': 0, }
+    
     for i in range(length):
         w = words[i + start]
         if len(w) == len(wtg):  # only consider words of the same length
@@ -166,8 +105,7 @@ def count_chars(words:list, wtg:str, letter_count_list, fitting_words_list, igno
                         pass
             else:  # else only gets called on a normal ending for loop (no break)
                 fitting_words.append(w)
-    letter_count_list.append(letter_count)
-    fitting_words_list.extend(fitting_words)
+                
 
 def get_filename(wtg:str, language:str):
     """We use this to easily return the name of the
@@ -210,7 +148,7 @@ def max_length(language:str):
 def main():
     wtg = "________"  # word to guess
     ignore = ["a", "e", "i", "o", "u"]  # unused letters
-    result = get_freq_letters(wtg, ignore, "english", 4)
+    result = get_freq_letters(wtg, ignore, "english")
     print(result[0])
 
 if __name__ == "__main__":

@@ -24,9 +24,7 @@ def stopwatch(lng, n=100, process_count=1):
 
 
 def main():
-    for i in (2, 4, 8, 12, 16):
-        print(f"Threads: {i}")
-        stopwatch("german", 50, i)
+    stopwatch("german", 500)
     
 
 
